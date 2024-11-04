@@ -23,9 +23,27 @@ jobs:
     - name: Install dependencies
       run: npm install
         
-    - name: Install wrangler v2
-      run: npm install -g wrangler@2.20.2
-        
     - name: Build
-      run: npx wrangler build
-# ... (rest of the file remains unchanged)
+      run: npx wrangler deploy --dry-run --outdir=dist  # 替换 wrangler build
+      
+    - name: Add Header
+      run: cp ${{ github.workspace }}/dist/worker.js ${{ github.workspace }}/dist/worker-original.js && echo -e "/*!\r\n  * v2ray Subscription Worker (${{ github.sha }})\r\n  * Copyright 2024 Vahid Farid (https://twitter.com/vahidfarid)\r\n  * Licensed under GPLv3 (https://github.com/vfarid/v2ray-worker/blob/main/Licence.md)\r\n  */\r\n" > ${{ github.workspace }}/dist/worker.js && cat ${{ github.workspace }}/dist/worker-original.js >> ${{ github.workspace }}/dist/worker.js
+      
+    - name: Upload to Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: worker
+        path: ${{ github.workspace }}/dist/worker.js
+        
+    - name: Add Release Header
+      run: echo -e "/*!\r\n  * v2ray Subscription Worker ${{ github.event.release.tag_name }}\r\n  * Copyright 2024 Vahid Farid (https://twitter.com/vahidfarid)\r\n  * Licensed under GPLv3 (https://github.com/vfarid/v2ray-worker/blob/main/Licence.md)\r\n  */\r\n" > ${{ github.workspace }}/dist/worker.js && cat ${{ github.workspace }}/dist/worker-original.js >> ${{ github.workspace }}/dist/worker.js
+      
+    - name: Upload to GitHub Release
+      uses: svenstaro/upload-release-action@v2
+      if: github.event_name == 'release'
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ${{ github.workspace }}/dist/worker.js
+        asset_name: worker.js
+        tag: ${{ github.ref }}
+        overwrite: true
